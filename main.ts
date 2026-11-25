@@ -9,7 +9,7 @@
 // Gate (RULES.txt): /output/entry.txt must be UTF-8 text of 1 to 160
 // characters, not only white space. This line is 73 characters.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const LINE =
@@ -25,7 +25,18 @@ if (!LINE.trim()) {
 if (LINE.includes("\n") || LINE.includes("\r")) {
   throw new Error("entry must be a single line");
 }
+// Tightening (reviser pass): no leading/trailing padding — the sealed
+// scorer counts every character, so padding would waste the 1-160 budget
+// and read as sloppy in an out-of-office reply.
+if (LINE !== LINE.trim()) {
+  throw new Error("entry line must not start or end with white space");
+}
 
 const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
 mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, "entry.txt"), LINE, "utf8");
+const outPath = join(outDir, "entry.txt");
+writeFileSync(outPath, LINE, "utf8");
+// Verify the round-trip: what the scorer reads must be exactly the line.
+if (readFileSync(outPath, "utf8") !== LINE) {
+  throw new Error("written entry does not match the gated line");
+}
